@@ -1,65 +1,83 @@
+
 const express = require('express');
-const path = require('path');
 const fs = require('fs');
+const path = require('path'); 
 
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001; 
 
-const app = express();
+
+const app = express(); 
+
+
+app.use(express.urlencoded ( { extended: true }));
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static('public'));
+app.use(express.static('public')); 
+
 
 const { notes } = require('./db/db.json');
 
-app.get('/', (req, res) =>
-  res.sendFile(path.join(__dirname, '/public/index.html'))
-);
+
+function createNewNote (body, notesArray) {
+    const note = body; 
+    notesArray.push(note); 
+
+   
+    fs.writeFileSync(
+        path.join(__dirname, './data/db.json'),
+        JSON.stringify({ notes : notesArray }, null, 2)
+    );
+   
+    return note; 
+};
 
 
-app.get('/notes', (req, res) => {
-  res.sendFile(path.join(__dirname, '/public/notes.html'))
+function validateNote (note) {
+    if (!note.title || typeof note.title !== 'string') {
+        return false; 
+    }
+    if (!note.text || typeof note.text !== "string") {
+        return false;
+    }
+    return true;   
+};
+
+
+app.get('/api/notes', (req, res) => {
+    res.json(notes); 
+});
+
+app.post('/api/notes', (req, res) => {
+  
+    req.body.id = notes.length.toString(); 
+
+  
+    if (!validateNote(req.body)) {
+        res.status(400).send('The note is not properly formatted.'); 
+    
+    } else {
+      
+        const note = createNewNote(req.body, notes); 
+
+        res.json(note);
+    }
 });
 
 
-app.route("/notes")
-    .get(function (req, res) {
-        res.json(database);
-    })
 
-    .post(function (req, res) {
-        let jsonFilePath = path.join(__dirname, "/db/db.json");
-        let newNote = req.body;
+// route to index.html 
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname,'./public/index.html'));
+}); 
 
-       
-        let highestId = 99;
-       
-        for (let i = 0; i < database.length; i++) {
-            let individualNote = database[i];
+// route to notes.html 
+app.get('/notes', (req, res) => {
+    res.sendFile(path.join(__dirname,'./public/notes.html'));
+}); 
 
-            if (individualNote.id > highestId) {
-                highestId = individualNote.id;
-            }
-        }
-       
-        newNote.id = highestId + 1;
-       
-        database.push(newNote)
-
-      
-        fs.writeFile(jsonFilePath, JSON.stringify(database), function (err) {
-
-            if (err) {
-                return console.log(err);
-            }
-            console.log("Your note was saved!");
-        });
-      
-        res.json(newNote);
-    });
-
-app.listen(PORT, () =>
-  console.log(`App listening at http://localhost:${PORT} 🚀`)
-);
+// chain listen() method onto our servers
+app.listen(PORT, () => {
+    console.log(`API server now on port ${PORT}!`);
+});
